@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
+import { endpoint, message } from './config'
 
-export default function useSocket (endpoint, messageSend) {
+export default function useSocket () {
   useEffect(()=> {
     let socket = new WebSocket(endpoint);
 
     socket.onopen = function() {
-      socket.send(JSON.stringify(messageSend));
+      socket.send(JSON.stringify(message));
     };
 
     socket.onmessage = function(res) {
@@ -26,9 +27,6 @@ export default function useSocket (endpoint, messageSend) {
       let asksList = asks.map(ask => {
         return `ask: ${ask}`
       })
-
-      document.getElementById("bids").innerHTML = bidsList;
-      document.getElementById("asks").innerHTML = asksList;
     }
 
     socket.onerror = function(error) {
