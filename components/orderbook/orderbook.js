@@ -7,6 +7,7 @@ export default class Orderbook extends Component {
     super(props)
     this.state = {
       status: 'loading',
+      product_id: '',
       bids: [],
       asks: []
     }
@@ -16,10 +17,12 @@ export default class Orderbook extends Component {
     this.initiateSocket()
   }
 
-  updateState(a, b) {
+  updateSnapShot(status, product_id, bids, asks) {
     this.setState({
-      bids: a,
-      asks: b
+      status,
+      product_id,
+      bids,
+      asks
     })
   }
 
@@ -32,27 +35,28 @@ export default class Orderbook extends Component {
 
     socket.onmessage = (res) => {
       let response = JSON.parse(res.data);
-      let feed, product_id, bids, asks;
+      let status = ''
+      let feed, product_id, bids, asks
 
       if (res && response) {
-        feed = response.feed ? response.feed : ""
-        product_id = response.product_id ? response.product_id : ""
-        bids = typeof response.bids === "object" ? response.bids : []
-        asks = typeof response.asks === "object" ? response.asks : []
+        if (response.event) {
+          status = response.event === 'subscribed' ? 'loaded' : ''
+        }
+
+        // snapshot event
+        if (response.feed === 'book_ui_1_snapshot') {
+          status = 'loaded'
+          feed = response.feed ? response.feed : ''
+          product_id = response.product_id ? response.product_id : ''
+          bids = typeof response.bids === 'object' ? response.bids : []
+          asks = typeof response.asks === 'object' ? response.asks : []
+
+          this.updateSnapShot(status, product_id, bids, asks)
+        } else {
+        // update event
+
+        }
       }
-
-      this.updateState(bids, asks)
-
-      let bidsList = bids.map(bid => {
-        return `bid: ${bid}`
-      })
-
-      let asksList = asks.map(ask => {
-        return `ask: ${ask}`
-      })
-
-      // document.getElementById("bids").innerHTML = bidsList;
-      // document.getElementById("asks").innerHTML = asksList;
     }
 
     socket.onerror = (error) => {
@@ -62,34 +66,137 @@ export default class Orderbook extends Component {
 
   render () {
     const {
+      status = 'loading',
       bids = [],
-      asks = []      
+      asks = []    
     } = this.state
 
-    return (
-      <div className={styles.container}>
-        <h2>Bids</h2>
-        <div id="bids">{
-          bids.map((bid, i) => {
-            return (
-              <div key={i}>
-                {bid[0]}{" "}{bid[1]}
+    if (status === 'loading') {
+      return (
+        <div className={styles.container}>
+          'Loading...'
+        </div>
+      )
+    }
+    else {
+
+      /* Bids */
+
+      var totalBids = 0
+      if (bids.length > 0) {
+        totalBids = bids.reduce((total, current, i) => {
+          if (i === 1) {
+            return current[1]
+          }
+          return total + current[1]
+        })
+      }
+
+      let bidsList = bids.map((bid, i, arr) => {
+        let total = totalBids
+
+        total = total + (arr.reduce((total, current, j) => {
+          if (j > i) {
+            return total - current[1]
+          }
+          return total
+        }, 0))
+
+        return (
+          <div className='row' key={i}>
+            <div className='col-sm'>
+              {bid[0]}
+            </div>
+            <div className='col-sm'>
+              {bid[1]}
+            </div>
+            <div className='col-sm'>
+              {total}
+            </div>
+          </div>
+        )
+      })
+
+      /* Asks */
+
+      var totalAsks = 0
+      if (bids.length > 0) {
+        totalAsks = bids.reduce((total, current, i) => {
+          if (i === 1) {
+            return current[1]
+          }
+          return total + current[1]
+        })
+      }
+
+      let asksList = asks.map((ask, i, arr) => {
+        let total = totalAsks
+
+        total = total + (arr.reduce((total, current, j) => {
+          if (j < i) {
+            return total + current[1]
+          }
+          return total
+        }, 0))
+
+        return (
+          <div className='row' key={i}>
+            <div className='col-sm'>
+              {ask[0]}
+            </div>
+            <div className='col-sm'>
+              {ask[1]}
+            </div>
+            <div className='col-sm'>
+              {total}
+            </div>
+          </div>
+        )
+      })
+
+      return (
+        <div className={styles.container}>
+          <h2>Bids</h2>
+          <br></br>
+          <div className='container'>
+            <div className='row'>
+              <div className='col-sm'>
+                <h3>Price</h3>
               </div>
-            )
-          })
-        }</div>
-        <br></br><br></br>
-        <h2>Asks</h2>
-        <div id="asks">{
-          asks.map((ask, i) => {
-            return (
-              <div key={i}>
-                {ask[0]}{" "}{ask[1]}
+              <div className='col-sm'>
+                <h3>Size</h3>
               </div>
-            )
-          })
-        }</div>
-      </div>
-    )
+              <div className='col-sm'>
+                <h3>Total</h3>
+              </div>
+            </div>
+            <div>
+              {bidsList}
+            </div>
+          </div>
+
+          <br></br><br></br>
+
+          <h2>Asks</h2>
+          <br></br>
+          <div className='container'>
+            <div className='row'>
+              <div className='col-sm'>
+                <h3>Price</h3>
+              </div>
+              <div className='col-sm'>
+                <h3>Size</h3>
+              </div>
+              <div className='col-sm'>
+                <h3>Total</h3>
+              </div>
+            </div>
+            <div>
+              {asksList}
+            </div>
+          </div>
+        </div>
+      )
+    }
   }
 }
